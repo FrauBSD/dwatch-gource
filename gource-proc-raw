@@ -1,0 +1,34 @@
+# -*- tab-width: 4 -*- ;; Emacs
+# vi: set filetype=sh tabstop=8 shiftwidth=8 noexpandtab :: Vi/ViM
+############################################################ IDENT(1)
+#
+# $Title: dwatch(8) gource module for dtrace_proc(4) activity $
+# $Copyright: 2014-2018 Devin Teske. All rights reserved. $
+# $FrauBSD: gource-proc-raw 2018-05-12 04:56:00 +0000 freebsdfrau $
+#
+############################################################ DESCRIPTION
+#
+# Display process activity (tagged with epoch)
+#
+############################################################ PROBE
+
+: ${PROBE:=proc:::create,proc:::exec-success,proc:::signal-send}
+
+load_profile proc
+
+############################################################ EVENT DETAILS
+
+exec 9<<EOF
+	/*
+	 * Print details
+	 */
+	printf("%u %s %s",
+		walltimestamp / 1000000000,
+		probealias[probename],
+		this->details);
+EOF
+EVENT_DETAILS=$( cat <&9 )
+
+################################################################################
+# END
+################################################################################

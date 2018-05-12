@@ -1,0 +1,38 @@
+# -*- tab-width: 4 -*- ;; Emacs
+# vi: set filetype=sh tabstop=8 shiftwidth=8 noexpandtab :: Vi/ViM
+############################################################ IDENT(1)
+#
+# $Title: dwatch(8) gource module for VOP_*(9) activity $
+# $Copyright: 2014-2018 Devin Teske. All rights reserved. $
+# $FrauBSD: gource-vfs-raw 2018-05-12 04:56:00 +0000 freebsdfrau $
+#
+############################################################ DESCRIPTION
+#
+# Display filesystem activity (tagged with epoch)
+#
+############################################################ PROBE
+
+: ${PROBE:=$( echo \
+	vfs:vop:vop_create:entry, \
+	vfs:vop:vop_lookup:entry, \
+	vfs:vop:vop_mkdir:entry, \
+	vfs:vop:vop_mknod:entry, \
+	vfs:vop:vop_remove:entry, \
+	vfs:vop:vop_rmdir:entry, \
+	vfs:vop:vop_symlink:entry )}
+
+load_profile vop_create
+
+############################################################ EVENT DETAILS
+
+exec 9<<EOF
+	/*
+	 * Print full path
+	 */
+	printf("%u %s", walltimestamp / 1000000000, this->path);
+EOF
+EVENT_DETAILS=$( cat <&9 )
+
+################################################################################
+# END
+################################################################################

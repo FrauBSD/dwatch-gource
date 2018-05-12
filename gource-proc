@@ -1,0 +1,304 @@
+# -*- tab-width: 4 -*- ;; Emacs
+# vi: set filetype=sh tabstop=8 shiftwidth=8 noexpandtab :: Vi/ViM
+############################################################ IDENT(1)
+#
+# $Title: dwatch(8) gource module for dtrace_proc(4) activity $
+# $Copyright: 2014-2018 Devin Teske. All rights reserved. $
+# $FrauBSD: gource-proc 2018-05-12 04:56:00 +0000 freebsdfrau $
+#
+############################################################ DESCRIPTION
+#
+# Produce gource custom log format for process activity
+#
+# NB: Requires FreeBSD 12.0-CURRENT or newer
+# NB: spawns single instance of ps(1), date(1), and getent(1) at start
+# NB: getent(1) invocation is "getent passwd" for mapping uid to username
+#
+############################################################ PROBE
+
+load_profile gource-proc-raw
+
+############################################################ GLOBALS
+
+: ${_AUDIT=1}
+: ${_DEBUG=}
+: ${_RAWLOGFILE:=}
+
+############################################################ MAIN
+
+[ "$_RAWLOGFILE$DEBUG$EXIT_AFTER_COMPILE" ] || info "Watching '$PROBE' ..."
+[ "$_RAWLOGFILE" ] && info "Reading from '$_RAWLOGFILE' ..."
+{
+	data=$( echo $$; ps axd -o pid,ppid,uid,gid,ucomm )
+	echo "$data" | awk -v debug="$_DEBUG" '
+	################################################## BEGIN
+	BEGIN {
+		delete gid
+		delete ucomm
+		delete uid
+		getline __ppid
+		getline hdr
+		(cmd = "date +\"%s: %Y %b %e %T\"") | getline epoch_dt
+		close(cmd)
+		epoch = dt = epoch_dt
+		sub(/: .*/, "", epoch)
+		sub(/.*: /, "", dt)
+	}
+	################################################## FUNCTIONS
+	function dwatch(event, _uid, _gid, _ucomm, _pid) {
+		printf "%s %u.%u %s[%u]: %u " event "\n",
+			dt, _uid, _gid, _ucomm, _pid, epoch
+		fflush(stdout)
+	}
+	################################################## MAIN
+	(pid = $1)(ppid = $2)(uid[pid] = $3)(gid[pid] = $4)(ucomm[pid] = $NF) {
+		if (pid) dwatch("FORK pid " pid,
+			uid[ppid], gid[ppid], ucomm[ppid], ppid)
+		dwatch("INIT", uid[pid], gid[pid], ucomm[pid], pid)
+		if (ppid == __ppid && ucomm[pid] == "sh") _ppid=pid
+		if (ppid == _ppid && ucomm[pid] == "ps") dwatch("EXIT",
+			uid[pid], gid[pid], ucomm[pid], pid)
+	}
+	################################################## END
+	END {
+		if (!debug) exit
+		print "DEBUG: END OF PS" > "/dev/stderr"
+		fflush(stderr)
+	}
+	' # END-QUOTE
+	if [ "$_RAWLOGFILE" ]; then
+		cat "$_RAWLOGFILE"
+	else
+		eval dwatch $ARGV -qX gource-proc-raw
+	fi
+} | awk -v debug="$_DEBUG" -v audit="$_AUDIT" '
+	################################################## BEGIN
+	BEGIN {
+		delete adder
+		delete addbuf
+		delete delbuf
+		delete name
+		delete parent
+		delete prefix_cache
+		delete proc
+		delete remake
+		delete sortedbuf
+		date = "[[:digit:]]+ [A-Z][a-z][a-z] [0-9 ][0-9]"
+		time = "[0-9][0-9]:[0-9][0-9]:[0-9][0-9]"
+		while ((cmd = "getent passwd") | getline pwinfo) {
+			if (split(pwinfo, pwf, /:/) < 3) continue
+			if (name[pwf[3]]) continue
+			name[pwf[3]] = pwf[1]
+		}
+		close(cmd)
+		delete pwf
+		pwinfo = cmd = ""
+	}
+	################################################## FUNCTIONS
+	function dprint(text) {
+		if (!debug) return
+		print "DEBUG: " text > "/dev/stderr"
+		fflush(stderr)
+	}
+	function dprint1(fmt, arg1) { dprint(sprintf(fmt, arg1)) }
+	function dprint2(fmt, arg1, arg2) { dprint(sprintf(fmt, arg1, arg2)) }
+	function dprint3(fmt, arg1, arg2, arg3) {
+		dprint(sprintf(fmt, arg1, arg2, arg3))
+	}
+	function dprint4(fmt, arg1, arg2, arg3, arg4) {
+		dprint(sprintf(fmt, arg1, arg2, arg3, arg4))
+	}
+	function _asorti(src, dest)
+	{
+		k = nitems = 0
+		for (i in src) dest[++nitems] = i
+		for (i = 1; i <= nitems; k = i++) {
+			idx = dest[i]
+			while ((k > 0) && (dest[k] > idx)) {
+				dest[k+1] = dest[k]; k--
+			}
+			dest[k+1] = idx
+		}
+		return nitems
+	}
+	function gourcestr(epoch, user, type, pid, prefix,        path, str) {
+		dprint4("gourcestr: user=%s type=%s pid=%s prefix=%s",
+			user, type, pid, prefix)
+		if (!(pid in proc)) return
+		if (!prefix) prefix = pid2prefix(pid)
+		if (!(path = prefix proc[pid])) return
+		sub("/*$", "", path)
+		str = sprintf("%u|%s|%s|%s", epoch, user, type, path)
+		if (audit && pid && path !~ /^0\.kernel\//) {
+			dprint(str)
+			dprint("CAUGHT INVALID PATH. EXITING.")
+			exit
+		}
+		return str
+	}
+	function addstr(user, pid) {
+		return gourcestr(epoch, adder[pid] = user, "A", pid)
+	}
+	function modstr(user, pid) { return gourcestr(epoch, user, "M", pid) }
+	function delstr(user, pid, prefix) {
+		if (pid in adder && adder[pid] != "") user = adder[pid]
+		return gourcestr(epoch, user, "D", pid, prefix)
+	}
+	function putstr(str) {
+		if (!str) return
+		print str
+		fflush(stdout)
+		dprint(str)
+	}
+	function add(user, pid) { putstr(addstr(user, pid)) }
+	function mod(user, pid) { putstr(modstr(user, pid)) }
+	function del(user, pid,        thisproc, n, p, i, _buf) {
+		dprint1("deleting pid %u", pid)
+		delete addbuf
+		delete delbuf
+		delete remake
+		_buf = delstr(user, pid)
+		dprint1("removal buffered as %s", _buf)
+		delbuf[_buf] = 1
+		thisproc = pid in proc ? proc[pid] : ""
+		for (p in proc) {
+			if (p in remake || p == pid || parent[p] != thisproc)
+				continue
+			orphan(user, p)
+		}
+		n = _asorti(delbuf, sortedbuf)
+		for (i = n; i >= 1; i--) putstr(sortedbuf[i])
+		delete proc[pid]
+		for (p in remake) {
+			dprint1("remaking pid %u", p)
+			delete prefix_cache[p]
+			_buf = addstr(user, p)
+			dprint1("addition buffered as %s", _buf)
+			addbuf[_buf] = 1
+		}
+		delete prefix_cache[pid]
+		delete parent[pid]
+		n = _asorti(addbuf, sortedbuf)
+		for (i = 1; i <= n; i++) putstr(sortedbuf[i])
+	}
+	function orphan(user, pid,        prefix, len, p, _prefix, _buf) {
+		dprint1("orphan pid %u", pid)
+		remake[pid] = 1
+		if ((prefix = pid2prefix(pid)) == "") {
+			parent[pid] = proc[1]
+			prefix_cache[pid] = prefix_cache[1] proc[1] "/"
+			return
+		}
+		_buf = delstr(user, pid, prefix)
+		dprint1("removal buffered as %s", _buf)
+		delbuf[_buf] = 1
+		len = length(prefix)
+		dprint1("begin check for children of orphan pid %u", pid)
+		prefix = prefix proc[pid] "/"
+		for (p in proc) {
+			if (!p || p == pid) continue
+			if ((_prefix = pid2prefix(p)) == "") continue
+			if (substr(_prefix, 1, len) != prefix) continue
+			dprint1("removing old path for %s", proc[p])
+			_buf = delstr(user, p, _prefix)
+			dprint1("removal buffered as %s", _buf)
+			delbuf[_buf] = 1
+			remake[p] = 1
+		}
+		parent[pid] = proc[1]
+		prefix_cache[pid] = prefix_cache[1] proc[1] "/"
+		dprint1("done checking for children of orphan pid %u", pid)
+		return
+	}
+	function exec(user, pid, newproc) {
+		if (!(pid in proc)) return
+		if (proc[pid] == newproc) {
+			mod(user, pid)
+			return
+		}
+		putstr(delstr(user, pid))
+		proc[pid] = newproc
+		add(user, pid)
+	}
+	function pid2prefix(pid,        prefix, thisproc, ppid, _pid_arg) {
+		if (pid == 0) return ""
+		if (!(pid in proc)) return ""
+		thisproc = proc[pid]
+		dprint1("constructing prefix for %s", thisproc)
+		if (pid in prefix_cache && prefix = prefix_cache[pid]) {
+			dprint2("%s cached prefix is %s", thisproc, prefix)
+			return prefix
+		}
+		_pid_arg = pid
+		while (pid && pid in parent && thisproc = parent[pid]) {
+			if (pid == 0) break
+			ppid = thisproc
+			sub(/\..*/, "", ppid)
+			if (pid in prefix_cache) {
+				prefix = prefix_cache[pid] prefix
+				dprint3("  pid=[%u] ppid=[%u] prefix=[%s]",
+					pid, ppid, prefix)
+				dprint2("  pid %u partially cached, prefix %s",
+					_pid_arg, prefix)
+				break
+			}
+			prefix = thisproc "/" prefix
+			dprint3("  pid=[%u] ppid=[%u] prefix=[%s]",
+				pid, ppid, prefix)
+			if (!pid || !ppid) {
+				dprint("  breaking")
+				break
+			}
+			pid = ppid
+		}
+		prefix_cache[_pid_arg] = prefix
+		dprint2("%s prefix cached as %s", proc[_pid_arg], prefix)
+		return prefix
+	}
+	################################################## MAIN
+	debug { dprint($0) }
+	length(datetime = substr($0, 1, 20)) != 20 { next }
+	datetime !~ "^" date " " time "$" { next }
+	(epoch = $7) ~ /^[[:digit:]]+/ {
+		uid_gid = uid = gid = $5
+		sub(/\..*/, "", uid)
+		sub(/.*\./, "", gid)
+		user = sprintf("%s[%u]", name[uid], uid)
+		curproc = $6
+		sub(/:$/, "", curproc)
+		pid = curproc
+		sub(/.*\[/, "", pid)
+		sub(/\]$/, "", pid)
+		sub(/\[[^\]]*\]$/, "", curproc)
+		curproc = pid "." curproc
+	}
+	$8 == "FORK" && childpid = $10 {
+		parent[childpid] = proc[childpid] = curproc
+		sub(/^[[:digit:]]+\./, childpid ".", proc[childpid])
+		delete prefix_cache[pid]
+		add(user, childpid)
+	}
+	$8 == "INIT" { exec(user, pid, curproc) }
+	$8 == "SEND" && (signal = $9) !~ /SIGCHLD/ {
+		source = pid
+		target = $11
+		if (source in proc) {
+			dprint2("%s sent signal to %s", proc[source],
+				target in proc ? proc[target] : "pid " target)
+			mod(user, sender)
+		}
+		if (target in proc) {
+			dprint2("%s received signal from %s", proc[target],
+				sender in proc ? proc[sender] : "pid " sender)
+			mod(user, target)
+		}
+	}
+	$8 == "EXIT" { del(user, pid) }
+	################################################## END
+' # END-QUOTE
+
+exit $SUCCESS
+
+################################################################################
+# END
+################################################################################

@@ -1,0 +1,29 @@
+# -*- tab-width: 4 -*- ;; Emacs
+# vi: set filetype=sh tabstop=8 shiftwidth=8 noexpandtab :: Vi/ViM
+############################################################ IDENT(1)
+#
+# $Title: dwatch(8) gource module for open[at](2) [or similar] entry $
+# $Copyright: 2014-2018 Devin Teske. All rights reserved. $
+# $FrauBSD: gource-open-raw 2018-05-12 04:56:00 +0000 freebsdfrau $
+#
+############################################################ DESCRIPTION
+#
+# Produce gource custom log format for open(2), openat(2), or similar
+#
+############################################################ PROBE
+
+load_profile open
+
+############################################################ EVENT DETAILS
+
+exec 9<<EOF
+	/*
+	 * Print path details
+	 */
+	printf("%u|%s|M|%s", walltimestamp / 1000000000, execname, this->path);
+EOF
+EVENT_DETAILS=$( cat <&9 )
+
+################################################################################
+# END
+################################################################################

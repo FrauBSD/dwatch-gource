@@ -1,0 +1,25 @@
+# -*- tab-width: 4 -*- ;; Emacs
+# vi: set filetype=sh tabstop=8 shiftwidth=8 noexpandtab :: Vi/ViM
+############################################################ IDENT(1)
+#
+# $Title: dwatch(8) gource module for VOP_*(9) activity $
+# $Copyright: 2014-2018 Devin Teske. All rights reserved. $
+# $FrauBSD: gource-open 2018-05-12 04:56:00 +0000 freebsdfrau $
+#
+############################################################ DESCRIPTION
+#
+# Produce gource custom log format for filesystem activity
+#
+############################################################ PROBE
+
+load_profile gource-open-raw
+
+############################################################ MAIN
+
+[ "$DEBUG$EXIT_AFTER_COMPILE" ] || info "Watching '$PROBE' ..."
+eval dwatch $ARGV -qX gource-open-raw | sed -e 's/.*: //'
+exit $SUCCESS
+
+################################################################################
+# END
+################################################################################
