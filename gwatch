@@ -1,0 +1,244 @@
+#!/bin/sh
+############################################################ IDENT(1)
+#
+# $Title: Script to render dwatch(1) gource-* output into mp4 output $
+# $Copyright: 2017-2018 Devin Teske. All rights reserved. $
+# $FrauBSD: gwatch 2018-05-12 23:09:51 +0000 freebsdfrau $
+#
+############################################################ INFORMATION
+#
+# Target must be FreeBSD 12.0-CURRENT with sysutils/dwatch-gource installed
+#
+############################################################ CONFIGURATION
+
+GOURCE_OPTIONS="
+	--auto-skip-seconds 1 --bloom-intensity 0.25
+	--dir-name-depth 5 --file-idle-time 0 --log-format custom
+	--highlight-users --key --hide mouse,progress
+" # END-QUOTE
+
+FFMPEG_OPTIONS="
+	-y -r 60 -f image2pipe -vcodec ppm -i - -vcodec libx264
+	-preset ultrafast -pix_fmt yuv420p -crf 1
+" # END-QUOTE
+
+############################################################ GLOBALS
+
+pgm="${0##*/}" # Program basename
+
+#
+# Defaults
+#
+DEFAULT_SIZE=1280x800
+: ${LOGFILE=${pgm%.*}.log}
+: ${MP4FILE=${pgm%.*}.mp4}
+
+#
+# Command-line options
+#
+APPEND=			# -a
+CONSOLE=		# -y
+CONSOLE_FORCE=		# -y
+[ -t 1 ] && CONSOLE=1	# -y
+DEBUG=			# -d
+LOCAL=			# -L
+NOGOURCE=		# -n
+PLAYLOG=		# -l
+QUIET=			# -q
+REALTIME=		# -R
+RENDER=			# -r
+SECONDS_PER_DAY=	# -s seconds
+SIZE=$DEFAULT_SIZE	# -S WxH
+TITLE=			# -t title
+VERBOSE=		# -v
+
+############################################################ FUNCTIONS
+
+die() { [ $# -gt 0 ] && echo "$pgm: $*" >&2; exit 1; }
+
+usage()
+{
+	exec >&2
+	echo "Usage(gource): $pgm [-adqrRvy] [GOURCE] profile -L | ssh_host"
+	echo "               $pgm -l [-dqrRy] [GOURCE] [logfile]"
+	echo "  (no-gource): $pgm -n [-adqvy] profile -L | ssh_host"
+	echo "               $pgm -ln [-dqy] [logfile]"
+	local fmt="\t%-12s %s\n"
+	echo "OPTIONS:"
+	printf "$fmt" "-a" "Append to log $LOGFILE (ignored by \`-l')."
+	printf "$fmt" "-d" "Debug. Create $LOGFILE"
+	printf "$fmt" "-l" "Play log file. Default $LOGFILE"
+	printf "$fmt" "-L" "Run dwatch locally."
+	printf "$fmt" "-n" "Do not run gource (disables \`-r')."
+	printf "$fmt" "-q" "Quiet. Hide dwatch info."
+	printf "$fmt" "-r" "Render output $MP4FILE (disables \`-n)."
+	printf "$fmt" "-R" "Pass --realtime to Gource (disables \`-n')."
+	printf "$fmt" "-v" "Verbose dwatch output."
+	printf "$fmt" "-y" "Always use color."
+	echo "GOURCE:"
+	printf "$fmt" "-s seconds" \
+		"Pass \`--seconds-per-day seconds' to gource."
+	printf "$fmt" "-S WxH" \
+		"Gource vieo size. Default $DEFAULT_SIZE (disables \`-n')."
+	printf "$fmt" "-t text" "Pass \`--title text' to gource."
+	echo "ENVIRONMENT:"
+	printf "$fmt" "LOGFILE" \
+		"Affects \`-d', \`-a', \`-l'. Default \`$LOGFILE'."
+	printf "$fmt" "MP4FILE" "Affects \`-r'. Default \`$MP4FILE'."
+	die
+}
+
+log_debug()
+{
+	awk -F\| -v console=$CONSOLE -v debug=$DEBUG -v nogource=$NOGOURCE '
+		!debug && !nogource { next }
+		!console { print; next }
+		{ color = $3=="A" ? 32 : $3=="D" ? 31 : $3=="M" ? 33 : 0 }
+		color { sub(/.*/, "\033[" color "m&\033[0m") }
+		{ print; fflush() }
+	' # END-QUOTE
+}
+
+gource()
+{
+	command gource $GOURCE_OPTIONS ${TITLE:+--title "$TITLE"} "$@"
+}
+
+############################################################ MAIN
+
+#
+# Process command-line options
+#
+while getopts adlLnqrRs:S:t:vy flag; do
+	case "$flag" in
+	a) APPEND=1 ;;
+	d) DEBUG=1 ;;
+	l) PLAYLOG=1 ;;
+	L) LOCAL=1 ;;
+	n) NOGOURCE=1 RENDER= ;;
+	q) QUIET=1 ;;
+	r) RENDER=1 NOGOURCE= ;;
+	R) REALTIME=1 NOGOURCE= ;;
+	s) SECONDS_PER_DAY="$OPTARG" ;;
+	S) SIZE="$OPTARG" NOGOURCE= ;;
+	t) TITLE="$OPTARG" ;;
+	v) VERBOSE=1 ;;
+	y) CONSOLE=1 CONSOLE_FORCE=1 ;;
+	*) usage # NOTREACHED
+	esac
+done
+shift $(( $OPTIND - 1 ))
+
+#
+# Check command-line arguments
+#
+[ $# -gt 0 -o "$PLAYLOG$LOCAL" ] || usage # NOTREACHED
+
+#
+# Process arguments
+#
+if [ ! "$PLAYLOG" ]; then
+	PROFILE="$1"
+	case "$PROFILE" in
+	*[^[:alnum:]_-]*|-*) die "Invalid profile name \`$PROFILE'" ;;
+	"") die "Missing profile name" ;;
+	esac
+	shift 1 # PROFILE
+	[ "$1" = "-L" ] && LOCAL=1
+	[ $# -a "$1$LOCAL" ] || die "Missing profile name" # NOTREACHED
+fi
+
+#
+# Debugging
+#
+if [ "$DEBUG" -o "$APPEND" ]; then
+	log_out="$LOGFILE"
+else
+	log_out=/dev/null
+fi
+if [ "$DEBUG" ]; then
+	cons_out="/dev/stderr"
+else
+	cons_out=/dev/null
+fi
+
+#
+# Gource options
+#
+GOURCE_OPTIONS="--$SIZE $GOURCE_OPTIONS"
+[ "$REALTIME" ] && GOURCE_OPTIONS="$GOURCE_OPTIONS --realtime"
+[ "$SECONDS_PER_DAY" ] &&
+	GOURCE_OPTIONS="$GOURCE_OPTIONS --seconds-per-day $SECONDS_PER_DAY"
+
+#
+# Gource
+#
+exec 3>&1
+if [ "$PLAYLOG" ]; then
+	[ $# -gt 0 ] && LOGFILE="$1"
+	if [ "$DEBUG" ]; then
+		data=$( cat "$LOGFILE" ) || exit
+		echo "$data" | log_debug
+		[ "$NOGOURCE" ] && exit
+		if [ "$RENDER" ]; then
+			GOURCE_OPTIONS="$GOURCE_OPTIONS --output-ppm-stream -"
+			echo "$data" | gource - |
+				ffmpeg $FFMPEG_OPTIONS "$MP4FILE"
+		else
+			echo "$data" | gource -
+		fi
+	else
+		[ "$NOGOURCE" ] && exit
+		if [ "$RENDER" ]; then
+			GOURCE_OPTIONS="$GOURCE_OPTIONS --output-ppm-stream -"
+			gource "$LOGFILE" | ffmpeg $FFMPEG_OPTIONS "$MP4FILE"
+		else
+			gource "$LOGFILE"
+		fi
+	fi
+	exit
+fi
+if [ "$RENDER" ]; then
+	[ "$NOGOURCE" ] && exit
+	GOURCE_OPTIONS="$GOURCE_OPTIONS --output-ppm-stream -"
+	if [ "$LOCAL" ]; then
+		dwatch ${QUIET:+-q} ${VERBOSE:+-v} -X gource-$PROFILE |
+			tee ${APPEND:+-a} "$log_out" | (
+				tee /dev/stderr | log_debug >&3
+			) 2>&1 | gource - | ffmpeg $FFMPEG_OPTIONS "$MP4FILE"
+	else
+		ssh "$@" dwatch ${QUIET:+-q} ${VERBOSE:+-v} \
+			-X gource-$PROFILE |
+			tee ${APPEND:+-a} "$log_out" | (
+				tee /dev/stderr | log_debug >&3
+			) 2>&1 | gource - | ffmpeg $FFMPEG_OPTIONS "$MP4FILE"
+	fi
+else
+	if [ "$LOCAL" ]; then
+		if [ "$NOGOURCE" ]; then
+			dwatch ${QUIET:+-q} ${VERBOSE:+-v} -X gource-$PROFILE |
+				tee ${APPEND:+-a} "$log_out" | log_debug
+		else
+			dwatch ${QUIET:+-q} ${VERBOSE:+-v} -X gource-$PROFILE |
+				tee ${APPEND:+-a} "$log_out" | (
+					tee /dev/stderr | log_debug >&3
+				) 2>&1 | gource -
+		fi
+	else
+		if [ "$NOGOURCE" ]; then
+			ssh "$@" dwatch ${QUIET:+-q} ${VERBOSE:+-v} \
+				-X gource-$PROFILE |
+				tee ${APPEND:+-a} "$log_out" | log_debug
+		else
+			ssh "$@" dwatch ${QUIET:+-q} ${VERBOSE:+-v} \
+				-X gource-$PROFILE |
+				tee ${APPEND:+-a} "$log_out" | (
+					tee /dev/stderr | log_debug >&3
+				) 2>&1 | gource -
+		fi
+	fi
+fi
+
+################################################################################
+# END
+################################################################################
