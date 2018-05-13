@@ -3,7 +3,7 @@
 #
 # $Title: Script to render dwatch(1) gource-* output into mp4 output $
 # $Copyright: 2017-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: gwatch 2018-05-13 15:29:48 +0000 freebsdfrau $
+# $FrauBSD: gwatch 2018-05-13 15:31:01 +0000 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -11,12 +11,34 @@
 #
 ############################################################ CONFIGURATION
 
+#
+# Default gource options
+#
 GOURCE_OPTIONS="
 	--auto-skip-seconds 1 --bloom-intensity 0.25
-	--dir-name-depth 5 --file-idle-time 0 --log-format custom
-	--highlight-users --key
+	--highlight-users --log-format custom
+
 " # END-QUOTE
 
+#
+# Probe-specific gource options
+#
+GOURCE_OPTIONS_open="
+	$GOURCE_OPTIONS --file-idle-time 2 --key
+" # END-QUOTE
+GOURCE_OPTIONS_proc="
+	$GOURCE_OPTIONS --dir-name-depth 5 --file-idle-time 0 --key
+" # END-QUOTE
+GOURCE_OPTIONS_syscall="
+	$GOURCE_OPTIONS --file-idle-time 5 --key
+" # END-QUOTE
+GOURCE_OPTIONS_vfs="
+	$GOURCE_OPTIONS --file-idle-time 15 --key
+" # END-QUOTE
+
+#
+# ffmpeg options
+#
 FFMPEG_OPTIONS="
 	-y -r 60 -f image2pipe -vcodec ppm -i - -vcodec libx264
 	-preset ultrafast -pix_fmt yuv420p -crf 1
@@ -25,6 +47,12 @@ FFMPEG_OPTIONS="
 ############################################################ GLOBALS
 
 pgm="${0##*/}" # Program basename
+
+#
+# Global exit status
+#
+SUCCESS=0
+FAILURE=1
 
 #
 # Defaults
@@ -45,6 +73,7 @@ LOCAL=			# -L
 NOGOURCE=		# -n
 PLAYLOG=		# -l
 QUIET=			# -q
+QUERY=			# -Q
 REALTIME=		# -R
 RENDER=			# -r
 RENDER_SHOW_MOUSE=	# -m
@@ -55,7 +84,7 @@ VERBOSE=		# -v
 
 ############################################################ FUNCTIONS
 
-die() { [ $# -gt 0 ] && echo "$pgm: $*" >&2; exit 1; }
+die() { [ $# -gt 0 ] && echo "$pgm: $*" >&2; exit $FAILURE; }
 
 usage()
 {
@@ -64,6 +93,7 @@ usage()
 	echo "               $pgm -l [-dmqrRy] [GOURCE] [logfile]"
 	echo "  (no-gource): $pgm -n [-adqvy] profile -L | ssh_host"
 	echo "               $pgm -ln [-dqy] [logfile]"
+	echo "               $pgm -Q [-q] -L | ssh_host"
 	local fmt="\t%-12s %s\n"
 	echo "OPTIONS:"
 	printf "$fmt" "-a" "Append to log $LOGFILE (ignored by \`-l')."
@@ -73,6 +103,7 @@ usage()
 	printf "$fmt" "-m" "Show mouse during render (implies \`-r')."
 	printf "$fmt" "-n" "Do not run gource (disables \`-r')."
 	printf "$fmt" "-q" "Quiet. Hide dwatch info."
+	printf "$fmt" "-Q" "Query available profiles."
 	printf "$fmt" "-r" "Render output $MP4FILE (disables \`-n)."
 	printf "$fmt" "-R" "Pass --realtime to Gource (disables \`-n')."
 	printf "$fmt" "-v" "Verbose dwatch output."
@@ -113,7 +144,7 @@ gource()
 #
 # Process command-line options
 #
-while getopts adlLmnqrRs:S:t:vy flag; do
+while getopts adlLmnqQrRs:S:t:vy flag; do
 	case "$flag" in
 	a) APPEND=1 ;;
 	d) DEBUG=1 ;;
@@ -122,6 +153,7 @@ while getopts adlLmnqrRs:S:t:vy flag; do
 	m) RENDER=1 RENDER_SHOW_MOUSE=1 ;;
 	n) NOGOURCE=1 RENDER= ;;
 	q) QUIET=1 ;;
+	Q) QUERY=1 ;;
 	r) RENDER=1 NOGOURCE= ;;
 	R) REALTIME=1 NOGOURCE= ;;
 	s) SECONDS_PER_DAY="$OPTARG" ;;
@@ -137,11 +169,22 @@ shift $(( $OPTIND - 1 ))
 #
 # Check command-line arguments
 #
-[ $# -gt 0 -o "$PLAYLOG$LOCAL" ] || usage # NOTREACHED
+[ $# -gt 0 -o "$PLAYLOG$LOCAL$QUERY" ] || usage # NOTREACHED
 
 #
 # Process arguments
 #
+if [ "$QUERY" ]; then
+	[ $# -gt 0 ] || LOCAL=1
+	oneline=
+	[ "$CONSOLE" ] || oneline=1
+	if [ "$LOCAL" ]; then
+		dwatch -${QUIET:+q}${oneline}Qr '^gource-[^-]*$'
+	else
+		ssh "$@" dwatch -${QUIET:+q}${oneline}Qr '^gource-[^-]*$'
+	fi | sed -e 's/gource-//g'
+	exit $SUCCESS
+fi
 if [ ! "$PLAYLOG" ]; then
 	PROFILE="$1"
 	case "$PROFILE" in
@@ -152,6 +195,8 @@ if [ ! "$PLAYLOG" ]; then
 	[ "$1" = "-L" ] && LOCAL=1
 	[ $# -a "$1$LOCAL" ] || die "Missing profile name" # NOTREACHED
 fi
+eval "[ \"\${GOURCE_OPTIONS_$PROFILE:+set}\" ] &&
+	GOURCE_OPTIONS=\"\$GOURCE_OPTIONS_$PROFILE\""
 
 #
 # Debugging
