@@ -3,7 +3,7 @@
 #
 # $Title: Script to render dwatch(1) gource-* output into mp4 output $
 # $Copyright: 2017-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: gwatch 2018-05-12 23:09:51 +0000 freebsdfrau $
+# $FrauBSD: gwatch 2018-05-13 13:40:54 +0000 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -85,6 +85,7 @@ usage()
 	printf "$fmt" "LOGFILE" \
 		"Affects \`-d', \`-a', \`-l'. Default \`$LOGFILE'."
 	printf "$fmt" "MP4FILE" "Affects \`-r'. Default \`$MP4FILE'."
+	printf "$fmt" "GOURCEOPT" "Extra options to pass to gource."
 	die
 }
 
@@ -101,7 +102,8 @@ log_debug()
 
 gource()
 {
-	command gource $GOURCE_OPTIONS ${TITLE:+--title "$TITLE"} "$@"
+	command gource $GOURCEOPT $GOURCE_OPTIONS \
+		${TITLE:+--title "$TITLE"} "$@"
 }
 
 ############################################################ MAIN
