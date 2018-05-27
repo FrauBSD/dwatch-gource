@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for dtrace_proc(4) activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-proc 2018-05-12 04:56:00 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-proc 2018-05-27 23:39:38 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -33,6 +33,9 @@ load_profile gource-proc-raw
 	echo "$data" | awk -v debug="$_DEBUG" '
 	################################################## BEGIN
 	BEGIN {
+		stdout = "/dev/stdout"
+		stderr = "/dev/stderr"
+
 		delete gid
 		delete ucomm
 		delete uid
@@ -62,7 +65,7 @@ load_profile gource-proc-raw
 	################################################## END
 	END {
 		if (!debug) exit
-		print "DEBUG: END OF PS" > "/dev/stderr"
+		print "DEBUG: END OF PS" > stderr
 		fflush(stderr)
 	}
 	' # END-QUOTE
@@ -74,6 +77,9 @@ load_profile gource-proc-raw
 } | awk -v debug="$_DEBUG" -v audit="$_AUDIT" '
 	################################################## BEGIN
 	BEGIN {
+		stdout = "/dev/stdout"
+		stderr = "/dev/stderr"
+
 		delete adder
 		delete addbuf
 		delete delbuf
@@ -97,7 +103,7 @@ load_profile gource-proc-raw
 	################################################## FUNCTIONS
 	function dprint(text) {
 		if (!debug) return
-		print "DEBUG: " text > "/dev/stderr"
+		print "DEBUG: " text > stderr
 		fflush(stderr)
 	}
 	function dprint1(fmt, arg1) { dprint(sprintf(fmt, arg1)) }
