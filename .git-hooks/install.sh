@@ -3,7 +3,7 @@
 #
 # $Title: Script to enable client side hooks $
 # $Copyright: 2017 Devin Teske. All rights reserved. $
-# $FrauBSD: .git-hooks/install.sh 2018-05-12 04:54:35 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/.git-hooks/install.sh 2018-05-12 04:54:35 +0000 freebsdfrau $
 #
 ############################################################ GLOBALS
 

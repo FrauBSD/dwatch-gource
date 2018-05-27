@@ -1,4 +1,4 @@
-[//]: # ($FrauBSD: README.md 2018-05-12 04:54:35 +0000 freebsdfrau $)
+[//]: # ($FrauBSD: dwatch-gource/README.md 2018-05-12 04:54:35 +0000 freebsdfrau $)
 
 # dwatch-gource
 

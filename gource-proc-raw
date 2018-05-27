@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for dtrace_proc(4) activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: gource-proc-raw 2018-05-12 04:56:00 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-proc-raw 2018-05-12 04:56:00 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #

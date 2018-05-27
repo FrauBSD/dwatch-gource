@@ -3,7 +3,7 @@
 #
 # $Title: Script to render dwatch(1) gource-* output into mp4 output $
 # $Copyright: 2017-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: gwatch 2018-05-13 15:31:01 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gwatch 2018-05-13 15:31:01 +0000 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
