@@ -1,0 +1,158 @@
+# -*- tab-width: 4 -*- ;; Emacs
+# vi: set filetype=sh tabstop=8 shiftwidth=8 noexpandtab :: Vi/ViM
+############################################################ IDENT(1)
+#
+# $Title: dwatch(8) gource module for network activity $
+# $Copyright: 2014-2018 Devin Teske. All rights reserved. $
+# $FrauBSD: dwatch-gource/gource-net 2018-05-27 23:41:04 +0000 freebsdfrau $
+#
+############################################################ DESCRIPTION
+#
+# Produce gource custom log format for network activity
+#
+############################################################ PROBE
+
+load_profile gource-net-raw
+
+############################################################ GLOBALS
+
+: ${_DEBUG=}
+
+############################################################ MAIN
+
+[ "$DEBUG$EXIT_AFTER_COMPILE" ] || info "Watching '$PROBE' ..."
+{
+	sockstat -cPtcp | awk -v debug="$_DEBUG" '
+	################################################## BEGIN
+	BEGIN {
+		stdout = "/dev/stdout"
+		stderr = "/dev/stderr"
+
+		delete uid
+		delete gid
+		while ((cmd = "getent passwd") | getline pwinfo) {
+			if (split(pwinfo, pwf, /:/) < 3) continue
+			if (uid[pwf[1]] || gid[pwf[1]]) continue
+			uid[pwf[1]] = pwf[3]
+			gid[pwf[1]] = pwf[4]
+		}
+		close(cmd)
+		delete pwf
+		pwinfo = cmd = ""
+
+		getline hdr
+		(cmd = "date +\"%s: %Y %b %e %T\"") | getline epoch_dt
+		close(cmd)
+		epoch = dt = epoch_dt
+		sub(/: .*/, "", epoch)
+		sub(/.*: /, "", dt)
+	}
+	################################################## FUNCTIONS
+	function dwatch(user, ucomm, pid, event) {
+		printf "%s %u.%u %s[%u]: %u tcp " event "\n",
+			dt, uid[user], gid[user], ucomm, pid, epoch
+		fflush(stdout)
+	}
+	################################################## MAIN
+	(user = $1)(ucomm = $2)(pid = $3)(local = $6)(remote = $7) {
+		dwatch(user, ucomm, pid, local " ACCEPT " remote)
+	}
+	################################################## END
+	END {
+		if (!debug) exit
+		print "DEBUG: END OF SOCKSTAT" > stderr
+		fflush(stderr)
+	}
+	' # END-QUOTE
+	eval dwatch $ARGV -qX gource-net-raw
+} | awk -v debug=$_DEBUG '
+	################################################## BEGIN
+	BEGIN {
+		stdout = "/dev/stdout"
+		stderr = "/dev/stderr"
+
+		date = "[[:digit:]]+ [A-Z][a-z][a-z] [0-9 ][0-9]"
+		time = "[0-9][0-9]:[0-9][0-9]:[0-9][0-9]"
+		rcvd = "/input|#e62020"
+		send = "/output|#32cd32"
+
+		delete noptr
+		delete addr2host
+		addr2host["127.0.0.1"] = addr2host["::1"] = "localhost"
+
+		delete port2service
+		while (getline < "/etc/services") {
+			if (/^[[:space:]]*(#|$)/ || !sub("/tcp.*", "", $2))
+				continue
+			port2service[$2] = $1
+		}
+	}
+	################################################## FUNCTIONS
+	function dprint(text) {
+		if (!debug) return
+		print "DEBUG: " text > stderr
+		fflush(stderr)
+	}
+	function gource(user, type, path,        str) {
+		str = sprintf("%u|%s|%s|%s", epoch, user, type, path)
+		print str
+		fflush(stdout)
+		dprint(str)
+	}
+	function add(user, path) {
+		gource(user, "A", path)
+		gource(user, "A", path rcvd)
+		gource(user, "A", path send)
+	}
+	function mod(user, path) {
+		gource(user, path ~ "/udp/" ? "D" : "M", path)
+	}
+	function del(user, path) {
+		gource(user, "D", path send)
+		gource(user, "D", path rcvd)
+		gource(user, "D", path)
+	}
+	function service(port,        name) {
+		return (name = port2service[port]) ? name : port
+	}
+	function host(addr,        name, record, n, fields) {
+		if (addr in addr2host) return addr2host[addr]
+		if (addr in noptr) return addr
+		(cmd = "host " addr) | getline record
+		close(cmd)
+		n = split(record, fields)
+		if (fields[n-1] == "pointer") {
+			sub(/\.$/, "", fields[n])
+			return addr2host[addr] = fields[n]
+		}
+		noptr[addr] = 1
+		return addr
+	}
+	################################################## MAIN
+	debug { dprint($0) }
+	length(datetime = substr($0, 1, 20)) != 20 { next }
+	datetime !~ "^" date " " time "$" { next }
+	(epoch = $7) ~ /^[[:digit:]]+/ {
+		curproc = $6
+		sub(/:$/, "", curproc)
+		family = $8
+		remote = $11
+		if (!remote) next
+		if (match(remote, /:[0-9]+$/)) remote = sprintf("%s/%s/%s",
+			host(substr(remote, 1, RSTART-1)), family,
+			service(substr(remote, RSTART+1)))
+		else
+			remote = host(remote)
+	}
+	$10 == "ACCEPT" || $10 == "CONNECT" { add(curproc, remote) }
+	$10 == "RCVD" { mod(curproc, remote rcvd) }
+	$10 == "SEND" { mod(curproc, remote send) }
+	$10 == "CLOSE" && remote != "0.0.0.0:0" { del(curproc, remote) }
+	################################################## END
+' # END-QUOTE
+
+exit $SUCCESS
+
+################################################################################
+# END
+################################################################################
