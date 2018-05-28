@@ -3,7 +3,7 @@
 #
 # $Title: Script to render dwatch(1) gource-* output into mp4 output $
 # $Copyright: 2017-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gwatch 2018-05-28 01:32:32 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gwatch 2018-05-28 01:36:31 +0000 freebsdfrau $
 #
 ############################################################ INFORMATION
 #
@@ -14,10 +14,10 @@
 #
 # Default gource options
 #
-GOURCE_OPTIONS="
+: ${GOURCE_OPTIONS="
 	--auto-skip-seconds 1 --bloom-intensity 0.25
 	--highlight-users --log-format custom
-" # END-QUOTE
+"}
 
 #
 # Probe-specific gource options
