@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for dtrace_proc(4) activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-proc 2018-05-27 23:39:38 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-proc 2018-05-28 05:50:26 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -24,13 +24,15 @@ load_profile gource-proc-raw
 : ${_DEBUG=}
 : ${_RAWLOGFILE:=}
 
+[ "${JID#0}" ] && info "Auditing disabled for jid $JID" && _AUDIT=
+
 ############################################################ MAIN
 
 [ "$_RAWLOGFILE$DEBUG$EXIT_AFTER_COMPILE" ] || info "Watching '$PROBE' ..."
 [ "$_RAWLOGFILE" ] && info "Reading from '$_RAWLOGFILE' ..."
 {
-	data=$( echo $$; ps axd -o pid,ppid,uid,gid,ucomm )
-	echo "$data" | awk -v debug="$_DEBUG" '
+	data=$( echo $$; ps axd ${JID:+-J$JID} -o pid,ppid,uid,gid,ucomm )
+	echo "$data" | awk -v jid=$JID -v debug="$_DEBUG" '
 	################################################## BEGIN
 	BEGIN {
 		stdout = "/dev/stdout"
@@ -46,6 +48,12 @@ load_profile gource-proc-raw
 		epoch = dt = epoch_dt
 		sub(/: .*/, "", epoch)
 		sub(/.*: /, "", dt)
+
+		if (jid) {
+			dwatch("INIT", 0, 0, ucomm[pid = 0] = "kernel", pid)
+			dwatch("FORK pid 1", 0, 0, ucomm[pid], pid)
+			dwatch("INIT", 0, 0, ucomm[pid = 1] = "init", pid)
+		}
 	}
 	################################################## FUNCTIONS
 	function dwatch(event, _uid, _gid, _ucomm, _pid) {

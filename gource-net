@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for network activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-net 2018-05-27 23:41:04 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-net 2018-05-28 05:50:26 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -22,7 +22,7 @@ load_profile gource-net-raw
 
 [ "$DEBUG$EXIT_AFTER_COMPILE" ] || info "Watching '$PROBE' ..."
 {
-	sockstat -cPtcp | awk -v debug="$_DEBUG" '
+	sockstat ${JID:+-j$JID} -cPtcp | awk -v debug="$_DEBUG" '
 	################################################## BEGIN
 	BEGIN {
 		stdout = "/dev/stdout"
