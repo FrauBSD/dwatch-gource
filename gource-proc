@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for dtrace_proc(4) activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-proc 2018-05-29 21:47:06 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-proc 2018-05-29 21:48:36 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -23,7 +23,7 @@ load_profile $_RAW_PROFILE
 
 : ${_AUDIT=1}
 : ${_DEBUG=}
-: ${_RAWLOGFILE:=}
+: ${_RAW_LOGFILE:=}
 
 [ "${JID#0}" ] && info "Auditing disabled for jid $JID" && _AUDIT=
 
@@ -34,8 +34,8 @@ if [ "$DEBUG$EXIT_AFTER_COMPILE" ]; then
 	exit
 fi
 
-if [ "$_RAWLOGFILE" ]; then
-	info "Reading from '$_RAWLOGFILE' ..."
+if [ "$_RAW_LOGFILE" ]; then
+	info "Reading from '$_RAW_LOGFILE' ..."
 else
 	info "Watching '$PROBE' ..."
 fi
@@ -86,8 +86,8 @@ fi
 		fflush(stderr)
 	}
 	' # END-QUOTE
-	if [ "$_RAWLOGFILE" ]; then
-		cat "$_RAWLOGFILE"
+	if [ "$_RAW_LOGFILE" ]; then
+		cat "$_RAW_LOGFILE"
 	else
 		eval dwatch $ARGV -qX $_RAW_PROFILE
 	fi
