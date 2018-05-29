@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for network activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-net-raw 2018-05-27 23:41:04 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-net-raw 2018-05-29 19:03:11 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -14,6 +14,7 @@
 
 : ${PROBE:=$( echo \
 	tcp:::debug-user, \
+	tcp:::state-change, \
 	udp:::send, \
 	fbt::soreceive_dgram:entry )}
 
@@ -84,11 +85,44 @@ tcp:::debug-user /* probe ID $(( $ID + 1 )) */
 			strjoin(" byte", this->length == 1 ? "" : "s")) : "";
 }
 
-/****************************** UDP ******************************/
-
-udp:::send /* probe ID $(( $ID + 2 )) */
+tcp:::state-change /* probe ID $(( $ID + 2 )) */
 {${TRACE:+
 	printf("<$(( $ID + 2 ))>");
+}
+	/*
+	 * tcpsinfo_t *
+	 */
+	this->local    = args[3]->tcps_laddr;
+	this->lport    = (uint16_t)args[3]->tcps_lport;
+	this->remote   = args[3]->tcps_raddr;
+	this->rport    = (uint16_t)args[3]->tcps_rport;
+	this->to_state = (int32_t)args[3]->tcps_state;
+
+	/*
+	 * tcplsinfo_t *
+	 */
+	this->from_state = (int32_t)args[5]->tcps_state;
+
+	/*
+	 * IPv6 support
+	 */
+	this->local6 = strstr(this->local, ":") != NULL ? 1 : 0;
+	this->remote6 = strstr(this->remote, ":") != NULL ? 1 : 0;
+	this->local = strjoin(strjoin(this->local6 ? "[" : "",
+		this->local), this->local6 ? "]" : "");
+	this->remote = strjoin(strjoin(this->remote6 ? "[" : "",
+		this->remote), this->remote6 ? "]" : "");
+
+	this->family = "tcp";
+	this->event = this->to_state == TCPS_CLOSED ? "CLOSE" : "";
+	this->details = "";
+}
+
+/****************************** UDP ******************************/
+
+udp:::send /* probe ID $(( $ID + 3 )) */
+{${TRACE:+
+	printf("<$(( $ID + 3 ))>");
 }
 	/*
 	 * ipinfo_t *
@@ -119,9 +153,9 @@ udp:::send /* probe ID $(( $ID + 2 )) */
 		strjoin(" byte", this->length == 1 ? "" : "s"));
 }
 
-udp:::receive /* probe ID $(( $ID + 3 )) */
+udp:::receive /* probe ID $(( $ID + 4 )) */
 {${TRACE:+
-	printf("<$(( $ID + 3 ))>");
+	printf("<$(( $ID + 4 ))>");
 }
 	/*
 	 * csinfo_t *
@@ -169,7 +203,7 @@ fbt::soreceive_dgram:entry /args[0] == urecv_socket/ {
 }
 EOF
 ACTIONS=$( cat <&9 )
-ID=$(( $ID + 4 ))
+ID=$(( $ID + 5 ))
 
 ############################################################ EVENT DETAILS
 
