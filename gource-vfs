@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for VOP_*(9) activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-vfs 2018-05-29 21:47:06 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-vfs 2018-05-29 21:50:16 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -29,8 +29,8 @@ fi
 info "Watching '$PROBE' ..."
 eval dwatch $ARGV -qFX $_RAW_PROFILE | awk -v debug=$_DEBUG '
 	BEGIN {
-		date  = "[[:digit:]]+ [A-Z][a-z][a-z] [0-9 ][0-9]"
-		time  = "[0-9][0-9]:[0-9][0-9]:[0-9][0-9]"
+		date = "[[:digit:]]+ [A-Z][a-z][a-z] [0-9 ][0-9]"
+		time = "[0-9][0-9]:[0-9][0-9]:[0-9][0-9]"
 	}
 	debug { printf "DEBUG: %s\n", $0 > "/dev/stderr" }
 	length(datetime = substr($0, 1, 20)) != 20 { next }
