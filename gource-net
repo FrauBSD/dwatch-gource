@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for network activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-net 2018-05-28 05:50:26 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-net 2018-05-29 19:01:30 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -21,51 +21,7 @@ load_profile gource-net-raw
 ############################################################ MAIN
 
 [ "$DEBUG$EXIT_AFTER_COMPILE" ] || info "Watching '$PROBE' ..."
-{
-	sockstat ${JID:+-j$JID} -cPtcp | awk -v debug="$_DEBUG" '
-	################################################## BEGIN
-	BEGIN {
-		stdout = "/dev/stdout"
-		stderr = "/dev/stderr"
-
-		delete uid
-		delete gid
-		while ((cmd = "getent passwd") | getline pwinfo) {
-			if (split(pwinfo, pwf, /:/) < 3) continue
-			if (uid[pwf[1]] || gid[pwf[1]]) continue
-			uid[pwf[1]] = pwf[3]
-			gid[pwf[1]] = pwf[4]
-		}
-		close(cmd)
-		delete pwf
-		pwinfo = cmd = ""
-
-		getline hdr
-		(cmd = "date +\"%s: %Y %b %e %T\"") | getline epoch_dt
-		close(cmd)
-		epoch = dt = epoch_dt
-		sub(/: .*/, "", epoch)
-		sub(/.*: /, "", dt)
-	}
-	################################################## FUNCTIONS
-	function dwatch(user, ucomm, pid, event) {
-		printf "%s %u.%u %s[%u]: %u tcp " event "\n",
-			dt, uid[user], gid[user], ucomm, pid, epoch
-		fflush(stdout)
-	}
-	################################################## MAIN
-	(user = $1)(ucomm = $2)(pid = $3)(local = $6)(remote = $7) {
-		dwatch(user, ucomm, pid, local " ACCEPT " remote)
-	}
-	################################################## END
-	END {
-		if (!debug) exit
-		print "DEBUG: END OF SOCKSTAT" > stderr
-		fflush(stderr)
-	}
-	' # END-QUOTE
-	eval dwatch $ARGV -qX gource-net-raw
-} | awk -v debug=$_DEBUG '
+eval dwatch $ARGV -qX gource-net-raw | awk -v debug=$_DEBUG '
 	################################################## BEGIN
 	BEGIN {
 		stdout = "/dev/stdout"
