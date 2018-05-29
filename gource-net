@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for network activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-net 2018-05-29 19:01:30 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-net 2018-05-29 21:40:03 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -12,7 +12,8 @@
 #
 ############################################################ PROBE
 
-load_profile gource-net-raw
+_RAW_PROFILE=gource-net-raw
+load_profile $_RAW_PROFILE
 
 ############################################################ GLOBALS
 
@@ -21,7 +22,7 @@ load_profile gource-net-raw
 ############################################################ MAIN
 
 [ "$DEBUG$EXIT_AFTER_COMPILE" ] || info "Watching '$PROBE' ..."
-eval dwatch $ARGV -qX gource-net-raw | awk -v debug=$_DEBUG '
+eval dwatch $ARGV -qX $_RAW_PROFILE | awk -v debug=$_DEBUG '
 	################################################## BEGIN
 	BEGIN {
 		stdout = "/dev/stdout"

@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for VOP_*(9) activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-vfs 2018-05-12 04:56:00 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-vfs 2018-05-29 21:40:03 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -12,7 +12,8 @@
 #
 ############################################################ PROBE
 
-load_profile gource-vfs-raw
+_RAW_PROFILE=gource-vfs-raw
+load_profile $_RAW_PROFILE
 
 ############################################################ GLOBALS
 
@@ -21,7 +22,7 @@ load_profile gource-vfs-raw
 ############################################################ MAIN
 
 [ "$DEBUG$EXIT_AFTER_COMPILE" ] || info "Watching '$PROBE' ..."
-eval dwatch $ARGV -qFX gource-vfs-raw | awk -v debug=$_DEBUG '
+eval dwatch $ARGV -qFX $_RAW_PROFILE | awk -v debug=$_DEBUG '
 	BEGIN {
 		date  = "[[:digit:]]+ [A-Z][a-z][a-z] [0-9 ][0-9]"
 		time  = "[0-9][0-9]:[0-9][0-9]:[0-9][0-9]"

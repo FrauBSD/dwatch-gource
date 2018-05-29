@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for dtrace_proc(4) activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-proc 2018-05-28 05:50:26 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-proc 2018-05-29 21:40:03 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -16,7 +16,8 @@
 #
 ############################################################ PROBE
 
-load_profile gource-proc-raw
+_RAW_PROFILE=gource-proc-raw
+load_profile $_RAW_PROFILE
 
 ############################################################ GLOBALS
 
@@ -80,7 +81,7 @@ load_profile gource-proc-raw
 	if [ "$_RAWLOGFILE" ]; then
 		cat "$_RAWLOGFILE"
 	else
-		eval dwatch $ARGV -qX gource-proc-raw
+		eval dwatch $ARGV -qX $_RAW_PROFILE
 	fi
 } | awk -v debug="$_DEBUG" -v audit="$_AUDIT" '
 	################################################## BEGIN

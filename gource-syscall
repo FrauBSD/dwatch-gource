@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for VOP_*(9) activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-syscall 2018-05-13 13:38:16 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-syscall 2018-05-29 21:40:03 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -12,12 +12,13 @@
 #
 ############################################################ PROBE
 
-load_profile gource-syscall-raw
+_RAW_PROFILE=gource-syscall-raw
+load_profile $_RAW_PROFILE
 
 ############################################################ MAIN
 
 [ "$DEBUG$EXIT_AFTER_COMPILE" ] || info "Watching '$PROBE' ..."
-eval dwatch $ARGV -qX gource-syscall-raw | sed -e 's/.*: //'
+eval dwatch $ARGV -qX $_RAW_PROFILE | sed -e 's/.*: //'
 exit $SUCCESS
 
 ################################################################################
