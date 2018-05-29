@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for dtrace_proc(4) activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-proc 2018-05-29 21:40:03 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-proc 2018-05-29 21:47:06 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -29,8 +29,16 @@ load_profile $_RAW_PROFILE
 
 ############################################################ MAIN
 
-[ "$_RAWLOGFILE$DEBUG$EXIT_AFTER_COMPILE" ] || info "Watching '$PROBE' ..."
-[ "$_RAWLOGFILE" ] && info "Reading from '$_RAWLOGFILE' ..."
+if [ "$DEBUG$EXIT_AFTER_COMPILE" ]; then
+	eval dwatch $ARGV -qX $_RAW_PROFILE
+	exit
+fi
+
+if [ "$_RAWLOGFILE" ]; then
+	info "Reading from '$_RAWLOGFILE' ..."
+else
+	info "Watching '$PROBE' ..."
+fi
 {
 	data=$( echo $$; ps axd ${JID:+-J$JID} -o pid,ppid,uid,gid,ucomm )
 	echo "$data" | awk -v jid=$JID -v debug="$_DEBUG" '
