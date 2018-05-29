@@ -4,7 +4,7 @@
 #
 # $Title: dwatch(8) gource module for network activity $
 # $Copyright: 2014-2018 Devin Teske. All rights reserved. $
-# $FrauBSD: dwatch-gource/gource-net-raw 2018-05-29 19:03:11 +0000 freebsdfrau $
+# $FrauBSD: dwatch-gource/gource-net-raw 2018-05-29 19:05:28 +0000 freebsdfrau $
 #
 ############################################################ DESCRIPTION
 #
@@ -187,7 +187,11 @@ udp:::receive /* probe ID $(( $ID + 4 )) */
 		urecv_remote), urecv_remote6 ? "]" : "");
 }
 
-fbt::soreceive_dgram:entry /args[0] == urecv_socket/ {
+fbt::soreceive_dgram:entry
+	/args[0] == urecv_socket/ /* probe ID $(( $ID + 5 )) */
+{${TRACE:+
+	printf("<$(( $ID + 5 ))>");
+}
 	this->local = urecv_local;
 	this->remote = urecv_remote;
 	this->length = urecv_length;
@@ -203,7 +207,7 @@ fbt::soreceive_dgram:entry /args[0] == urecv_socket/ {
 }
 EOF
 ACTIONS=$( cat <&9 )
-ID=$(( $ID + 5 ))
+ID=$(( $ID + 6 ))
 
 ############################################################ EVENT DETAILS
 
