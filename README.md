@@ -1,6 +1,6 @@
 [//]: # ($FrauBSD: dwatch-gource/README.md 2018-06-17 23:02:08 +0000 freebsdfrau $)
 
-# dwatch-gource
+# Welcome to [FrauBSD.org/dwatch-gource](https://fraubsd.org/dwatch-gource)!
 
 DTrace modules for FreeBSD's dwatch(1) to produce Gource logs
 
